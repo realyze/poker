@@ -1,0 +1,20 @@
+doctype 5
+html
+  head
+    title
+      | Planning Poker
+    link(rel='stylesheet', href='/lib/bootstrap/css/bootstrap.css')
+    link(rel='stylesheet', href='/stylesheets/style.css')
+    script(type='text/javascript', src='lib/knockout.js')
+    script(type='text/javascript', src='lib/jquery.js')
+    script(type='text/javascript', src='lib/bootstrap/js/bootstrap.js')
+    script(type='text/javascript', src="/socket.io/socket.io.js")
+    script(type='text/javascript', src='javascripts/main.js')
+  body
+    .navbar.navbar-fixed-top
+      .navbar-inner
+        .container
+          .brand 
+            | Planning poker
+
+    block content

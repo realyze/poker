@@ -1,0 +1,66 @@
+extends layout
+
+block content
+  .navbar.navbar-fixed-top
+      .navbar-inner
+        .container
+          .brand= title
+  .row
+    .span7#poker-main
+
+      .row#poker-project-list(data-bind="if: !selectedProject()")
+        .loading(data-bind="visible: projects().length == 0") 
+          | Loading projects...
+        .projects(data-bind="template: {name: 'projects-list-template'}")
+          
+      .row#poker-project(data-bind="if: selectedProject() && !selectedProject().selectedStory()")
+        .loading(data-bind="visible: !selectedProject().loaded()") 
+          | Loading stories...
+        .project(data-bind="template: {name: 'project-template', data: selectedProject()}, visible: selectedProject().loaded()")
+
+      .row#poker-story(data-bind="if: selectedProject() && selectedProject().selectedStory()")
+        .story(data-bind="template: {name: 'poker-story-template', data: selectedProject().selectedStory()}")
+
+    .span2
+      a.logout(data-bind="click: logout")
+        | logout
+
+  script#poker-story-template(type="text/html")
+    .btn-toolbar
+      #pt-scale.btn-group(data-bind="foreach: up.scale()")
+        button.points.btn-large(data-bind="text: $data, click: $parent.pointBtnClicked")
+
+
+  script#stories-section-template(type="text/html")
+    .stories-section(data-bind="foreach: $data")
+      
+  script#project-template(type="text/html")
+    .stories-section
+      h3.header Current
+      .stories(data-bind="foreach: stories().current")
+        .story
+          a(data-bind="text: name, click: $parent.onStorySelected")
+
+    .stories-section
+      h3.header Backlog
+      .stories(data-bind="foreach: stories().backlog")
+        .story
+          a.story(data-bind="text: name, click: $parent.onStorySelected")
+
+    .stories-section
+      h3.header Icebox
+      .stories(data-bind="foreach: stories().icebox")
+        .story
+          a.story(data-bind="text: name, click: $parent.onStorySelected")
+
+
+  script#projects-list-template(type="text/html")
+    .header
+      | projects:
+    .projects(data-bind="foreach: projects")
+      .project
+        a.project(data-bind="text: name, click: $root.projectSelected")
+
+
+
+

@@ -1,0 +1,20 @@
+extends layout
+
+block content
+  form.form-horizontal.login(action='/login', method='post')
+    .control-group
+      label.control-label(for='input-uname')
+        | username
+      .controls
+        input#inputEmail(type='text', placeholder='Email', name='username')
+    .control-group
+      label.control-label(for='input-password')
+        | password
+      .controls
+        input#inputPassword(type='password', placeholder='Password', name='password')
+    .control-group
+      .controls
+        button.btn(type='submit')
+          | Sign in
+    p.text-error
+      =error    
