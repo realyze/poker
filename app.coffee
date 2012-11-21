@@ -75,20 +75,18 @@ passport.use new LocalStrategy (username, password, done) ->
     if r.statusCode != 200
       return done(null, false, message: "PT returned: #{r.statusCode}")
     else
-      console.log "body: #{JSON.stringify body}"
-      doc = libxmljs.parseXml body
-      token = doc.get('//guid')
-      console.log "token: #{token.text()}"
+      handleWebSocketConnection(username)
+      apiTokenElem = libxmljs.parseXml(body).get('//guid')
+      done(null, token: apiTokenElem.text())
+    
 
-      
-      return done(null, token: token.text())
+handleWebSocketConnection = (username) ->
+  sio.sockets.on 'connection', (socket) ->
+    console.log 'WS connected'
+    socket.on 'subscribe', socket.join
+    socket.on 'unsubscribe', socket.leave
+    socket.on 'vote', (obj) ->
+      console.log "voted: #{JSON.stringify obj}"
+      sio.sockets.in(obj.room).emit('client_voted', {user: username, value: obj.value})
 
-sio.sockets.on 'connection', (socket) ->
-  console.log 'websocket connected'
-  socket.on 'subscribe', (room) -> socket.join room
-  socket.on 'unsubscribe', (room) -> socket.leave room
-  socket.on 'vote', (obj) ->
-    console.log 'emiting on vote'
-    #sio.sockets.in(obj.room).emit('score', {user: 'username', score: obj.score})
-    socket.emit('score', {user: 'username', score: obj.score})
 

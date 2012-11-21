@@ -1,5 +1,5 @@
-socket = io.connect('http://localhost:3000');
 
+socket = io.connect('http://localhost:3000')
 
 class PokerViewModel
   constructor: ->
@@ -8,15 +8,17 @@ class PokerViewModel
 
   getProjects: ->
     $.get('/projects/')
-      .success( (data) => console.log data; @projects(data))
-      .error( -> console.log 'error')
+      .success( (data) => @projects(data))
+      .error( (err) -> console.log 'error: ' + err)
 
   projectSelected: (project) =>
     projectModel = new PokerProject(project)
     @selectedProject(projectModel)
     projectModel.getStories()
+    window.location = "#/project/#{project.id}"
 
   logout: ->
+    console.log 'logging out...'
     window.location = '/logout'
 
 
@@ -31,32 +33,64 @@ class PokerProject
   getStories: ->
     console.log "PokerProject#getStories"
     $.get("/projects/#{@id}/stories")
-      .success((data) => 
+      .success((data) =>
         for own key of data
-          @stories()[key] = (new PokerStory(@, story.name, story.id) for story in data[key])
+          @stories()[key] = for story in data[key]
+            new PokerStory(@, story.name, story.id)
         @loaded(true)
       ).error( (err) => console.log err; @loaded true)
 
   onStorySelected: (story) =>
-    console.log "story selected"
+    if @selectedStory()?
+      socket.emit 'unsubscribe', @selectedStory.wsRoomName()
     @selectedStory story
-    room = "#{@id}/#{story.id}"
-    socket.emit 'unsubscribe', room
-    socket.emit 'subscribe', room
+    socket.emit 'subscribe', story.wsRoomName()
+    socket.removeAllListeners 'client_voted'
+    socket.on 'client_voted', (vote) =>
+      console.log "client voted: #{JSON.stringify vote}"
+      obj = _.find(story.votes(), (v) -> _.isEqual(v, vote))
+      if not obj?
+        story.votes().push(vote)
+      else
+        obj.value = vote.value
+
 
 class PokerStory
   constructor: (@up, @name, @id) ->
     @selectedValue = ko.observable 0
-    @scores = ko.observable {}
+    @votes = ko.observableArray []
+    @wsRoomName = ko.computed => "#{@up.id}/#{@id}"
+    @votesRevealed = ko.observable false
+
 
   pointBtnClicked: (value) =>
+    console.log 'PokerStory#pointBtnClicked'
     @selectedValue value
-    room = "#{@up.id}/#{@id}"
-    socket.emit 'vote', {room: room, score: value}
-    socket.on 'score', (score) ->
-      console.log 'score: ' + JSON.stringify score
+    socket.emit 'vote', {room: @wsRoomName(), value: value}
+
+  revealVotes: =>
+    console.log 'votes reveal!'
+    @votesRevealed true
 
 $ ->
-  pokerModel = new PokerViewModel()
+  window.pokerModel = pokerModel = new PokerViewModel()
   ko.applyBindings pokerModel, $('#poker-main')[0]
-  pokerModel.getProjects()
+
+  app = Sammy '#poker-main', ->
+
+    @get '#/', ->
+      pokerModel.getProjects()
+      pokerModel.selectedProject(null)
+
+    @get '#/project/:project_id', ->
+      selectProject = =>
+        projectId = @params.project_id
+        project = _.find pokerModel.projects(), (p) -> p.id == projectId
+        pokerModel.projectSelected project
+      if pokerModel.projects().length == 0
+        xhr = pokerModel.getProjects()
+        xhr.success -> selectProject()
+      else
+        selectProject()
+
+  app.run '#/'

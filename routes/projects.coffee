@@ -2,40 +2,43 @@ request = require 'request'
 libxmljs = require("libxmljs")
 Q = require 'q'
 QQ = require 'qq'
+_ = require 'underscore'
 
+
+PT_ROOT = 'http://www.pivotaltracker.com/services/v3'
+
+getQ = (opts) ->
+  deferred = Q.defer()
+  request.get opts, (e, r, body) ->
+    if e then return deferred.reject e
+    if r.statusCode is not 200
+      return deferred.reject new Error({code: r.statusCode, message: body})
+    deferred.resolve body
+  return deferred.promise
+
+
+translatePTStory = (story) ->
+  id: story.get('id').text()
+  name: story.get('name').text()
 
 
 getStoriesForIteration = (projectId, iteration, token) ->
-  deferred = Q.defer()
-
-  url = "http://www.pivotaltracker.com/services/v3/projects/#{projectId}/iterations/#{iteration}"
-  console.log url
-  request.get {url: url, headers: {'X-TrackerToken': token}}, (e,r, body) ->
-    if e or r.statusCode != 200
-      deferred.reject new Error("Could not fetch stories for iteration: #{iteration}: #{e}, #{r.statusCode}")
-    else
+  url = "#{PT_ROOT}/projects/#{projectId}/iterations/#{iteration}"
+  getQ({url: url, headers: {'X-TrackerToken': token}})
+    .then (body) ->
       doc = libxmljs.parseXml body
-      console.log 'reslving promise'
-      deferred.resolve ({
-        id: s.get('id').text()
-        name: s.get('name').text()
-      } for s in doc.find('//story'))
-  return deferred.promise
+      return _.map doc.find('//story'), translatePTStory
 
 
 getStoriesByFilter = (projectId, filter, token) ->
-  deferred = Q.defer()
-
-  request.get {url: "http://www.pivotaltracker.com/services/v3/projects/#{projectId}/stories", headers: {'X-TrackerToken': token}, qs: {filter: filter}}, (e,r, body) ->
-    if e or r.statusCode != 200
-      deferred.reject new Error('Could not fetch stories for filter: ' + filter)
-    else
+  getQ({
+    url: "#{PT_ROOT}/projects/#{projectId}/stories"
+    headers: {'X-TrackerToken': token}
+    qs: {filter: filter}
+  })
+    .then (body) ->
       doc = libxmljs.parseXml body
-      deferred.resolve ({
-        id: s.get('id').text()
-        name: s.get('name').text()
-      } for s in doc.find('//story'))
-  return deferred.promise
+      return _.map doc.find('//story'), translatePTStory
 
 
 exports.setup = (app) ->
@@ -46,29 +49,31 @@ exports.setup = (app) ->
       backlog: getStoriesForIteration req.params.id, 'backlog', req.user.token
       icebox: getStoriesByFilter req.params.id, 'state:unscheduled', req.user.token
     }
-    console.log stories
-    QQ.deep(stories).then (resolvedStories) ->
-      console.log 'resolved: ' + JSON.stringify resolvedStories
-      res.send resolvedStories
-    , (err) -> 
-      res.send 500, err.message
+    QQ.deep(stories)
+      .then (resolvedStories) ->
+        res.send resolvedStories
+      .fail (err)->
+        res.send 500, err.message
+      .end()
+
+  translatePTProject = (project) ->
+    id: project.get('id').text()
+    name: project.get('name').text()
+    scale: project.get('point_scale').text()
      
+
+  app.get '/:id', (req, res) ->
+    getQ url: "#{PT_ROOT}/projects/#{req.params.id}",
+         headers: {'X-TrackerToken': req.user.token}
+      .then (body) ->
+        doc = libxmljs.parseXml body
+        res.send _.first _.map doc.find('//project'), translatePTProject
+      .end()
 
     
   app.get '/', (req, res) ->
-    console.log req.user
-    request.get {url: 'http://www.pivotaltracker.com/services/v3/projects', headers: {'X-TrackerToken': req.user.token}}, (e, r, body) ->
-      if e
-        console.log "e: #{JSON.stringify e}"
-        return res.send 500, e
-      if r.statusCode != 200
-        return res.send 500, r.statusCode
-      else
+    getQ({url: "#{PT_ROOT}/projects", headers: {'X-TrackerToken': req.user.token}})
+      .then (body) ->
         doc = libxmljs.parseXml body
-        return res.send ({
-          id: p.get('id').text(),
-          name: p.get('name').text(),
-          scale: p.get('point_scale').text()
-        } for p in doc.find('//project'))
-
-
+        res.send _.map doc.find('//project'), translatePTProject
+      .end()

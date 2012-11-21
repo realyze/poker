@@ -20,6 +20,7 @@
     "express-namespace": "~0.1.1",
     "q": "~0.8.10",
     "qq": "~0.3.5",
-    "socket.io": "~0.9.11"
+    "socket.io": "~0.9.11",
+    "underscore": "~1.4.2"
   }
 }

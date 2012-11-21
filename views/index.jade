@@ -5,8 +5,8 @@ block content
       .navbar-inner
         .container
           .brand= title
-  .row
-    .span7#poker-main
+  .row#poker-main
+    .span7
 
       .row#poker-project-list(data-bind="if: !selectedProject()")
         .loading(data-bind="visible: projects().length == 0") 
@@ -29,6 +29,13 @@ block content
     .btn-toolbar
       #pt-scale.btn-group(data-bind="foreach: up.scale()")
         button.points.btn-large(data-bind="text: $data, click: $parent.pointBtnClicked")
+    #reveal-votes(data-bind="click: revealVotes")
+      a Reveal all votes
+    #votes(data-bind="foreach: votes(), visible: votesRevealed()")
+      .vote
+        span(data-bind="text: user")
+        span  : 
+        span(data-bind="text: value")
 
 
   script#stories-section-template(type="text/html")
